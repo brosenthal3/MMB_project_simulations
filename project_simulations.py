@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class PhaseField2DModel:
-    def __init__(self, Lx=100, Ly=100):
+    def __init__(self, Lx=150, Ly=100):
         self.Lx = Lx
         self.Ly = Ly
         self.N = 4 # number of cells
