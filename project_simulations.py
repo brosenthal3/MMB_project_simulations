@@ -10,12 +10,12 @@ class PhaseField2DModel:
         self.types = [2, 2, 1, 2] # cell types
 
         # model parameters
-        self.kappa = 8 # interface energy coefficient
-        self.epsilon2 = 0.8 # interface thickness parameter
-        self.alpha = 0.01 # volume conservation parameter
+        self.kappa = 15 # interface energy coefficient
+        self.epsilon2 = 0.9 # interface thickness parameter
+        self.alpha = 0.005 # volume conservation parameter
         self.mobility = 2 # mobility coefficient
-        self.tau = 1 # relaxation time
-        self.gamma = 22 # no-overlap coefficient
+        self.tau = 1.2 # relaxation time
+        self.gamma = 10 # no-overlap coefficient
         self.adhesion = np.array([[0.001, 0.001],
                                  [0.001, 1.5]]) # adhesion matrix between cell types
 
@@ -31,12 +31,12 @@ class PhaseField2DModel:
     def set_phi(self):
         phi = np.zeros((self.Lx,self.Ly, self.N))
         spacing = -40  # horizontal spacing between cell centers
-        d_spacing = 25  # increment of spacing for each cell
+        d_spacing = 28  # increment of spacing for each cell
         
         for k in range(self.N):
             for i in range(self.Lx):
                 for j in range(self.Ly):
-                    if (i-(self.Lx/2 + spacing))**2 + (j-self.Ly/2)**2 < 13**2:
+                    if (i-(self.Lx/2 + spacing))**2 + (j-self.Ly/2)**2 < 12**2:
                         phi[i, j, k] = 1
 
             spacing += d_spacing
@@ -63,9 +63,16 @@ class PhaseField2DModel:
             + np.roll(phi, -1, axis=1)
             - 4 * phi
         )
+    
+    def get_middle_of_cell(self, phi):
+        indices = np.argwhere(phi > 0.5)
+        if indices.size == 0:
+            return self.Lx // 2  # default to center if no points found
+        mid_x = int(np.mean(indices[:, 0]))
+        return mid_x
 
 
-    def run_simulation(self, tmax=250, dt=0.025):
+    def run_simulation(self, tmax=200, dt=0.045):
         # time simulation
         init_time = time.time()
 
@@ -78,15 +85,45 @@ class PhaseField2DModel:
         plt.show()
 
         # compute volume at t=0
-        VolT = [np.sum(self.h(self.phi[:, :, k])) for k in range(self.N)]
+        VolT = [np.sum(self.h(self.phi[:, :, k]))+50 for k in range(self.N)]
         
         # Update of the matrix phi
         t=0
         considered_combinations = []
+        cell_dividing = None
         while t<tmax:
             for k in range(self.N):
+
                 Vol = np.sum(self.h(self.phi[:, :, k]))
                 interface = self.phi[:,:,k] * (1-self.phi[:,:,k])
+                # if (round(t/dt)%100==0):
+                #     print(f"Volume of cell {k}: {Vol}, Target Volume: {VolT[k]}")
+
+                # random chance for a cell to divide!
+                if np.random.rand() < 0.0003 and cell_dividing is None and Vol >= 0.9*VolT[k]:
+                    print(f"Cell {k} is growing")
+                    cell_dividing = k
+                    VolT[k] *= 1.5  # increase target volume for division
+
+
+                if Vol >= 0.99*VolT[k] and cell_dividing == k:
+                    VolT[k] /= 1.5  # reset target volume after division
+                    # perform cell division
+                    new_phi_left = np.copy(self.phi[:, :, k])
+                    new_cell_right = np.copy(self.phi[:, :, k])
+                    mid_x = self.get_middle_of_cell(new_phi_left)
+                    new_phi_left[:mid_x, :] = 0  # clear half of the original cell
+                    self.phi[:, :, k] = new_phi_left
+
+                    # create new cell)
+                    new_cell_right[mid_x:, :] = 0  # clear other half for new cell
+                    self.phi = np.concatenate((self.phi, new_cell_right[:, :, np.newaxis]), axis=2)
+                    self.N += 1
+                    self.types.append(self.types[k])  # same type as parent cell
+                    VolT.append(VolT[k])  # same target volume as parent cell
+                    cell_dividing = None  # reset dividing cell
+                    
+                    print(f"Cell {k} of type {self.types[k]} is dividing at time {round(t,2)}, new type list: {self.types}")
 
                 # compute surface tension term
                 surface_tension_term = 0.5 * interface * (1-2*self.phi[:,:,k]) - self.epsilon2 * self.nabla_squared(self.phi[:,:,k])
@@ -99,7 +136,9 @@ class PhaseField2DModel:
                         l_cell_type = self.types[l]-1
                         adhesion_repulsion_term += interface * ( (6*self.gamma)/self.kappa) * self.h(self.phi[:,:,l]) - (6*self.adhesion[k_cell_type, l_cell_type]/self.kappa * self.nabla_squared(self.h(self.phi[:,:,l])))
                         considered_combinations.append({k,l})
-    
+                
+                considered_combinations = []
+
                 # calculate volume exclusion term
                 volume_exclusion_term = 6 * self.mobility * self.alpha * interface * (VolT[k]-Vol)
 
@@ -113,12 +152,14 @@ class PhaseField2DModel:
 
             # Update plot every 100 steps
             if (round(t/dt)%100==0):
-                plot_field = np.sum(self.phi, axis=2) + self.phi[:, :, 2]
+
+                plot_field = np.sum(self.phi, axis=2) +np.sum([self.phi[:, :, k] for k in range(self.N) if self.types[k] == 1], axis=0)
 
                 im.set_data(plot_field.T)  # Update data instead of redrawing
                 plt.draw()
                 plt.pause(0.001)  # Small pause for display update
 
+        print(self.phi.shape[2], " Cells")
         print("Simulation complete.")
         finish_time = time.time()
         print(f"Total simulation time: {round(finish_time - init_time, 2)} seconds")
