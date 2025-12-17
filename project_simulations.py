@@ -12,13 +12,13 @@ class PhaseField2DModel:
         self.kappa = 22 # interface energy coefficient
         self.epsilon2 = 0.8 # interface thickness parameter
         self.alpha = 0.004 # volume conservation parameter
-        self.mobility = [4, 4, 4] # mobility coefficient per cell type
-        self.tau = [1, 0.3, 0.3] # relaxation time per cell type
+        self.mobility = [3, 4, 4] # mobility coefficient per cell type
+        self.tau = [1, 0.25, 0.3] # relaxation time per cell type
         self.gamma = np.array([[8, 1.5, 30],
                               [1.5, 30, 30],
                               [30, 30, 30]]) # no-overlap coefficient
 
-        self.adhesion = np.array([[0, 0.15, 0.05],
+        self.adhesion = np.array([[0.001, 0.15, 0.05],
                                  [0.15, 0.02, 0.01],
                                  [0.05, 0.01, 0.4]]) # adhesion matrix between cell types
 
@@ -26,7 +26,7 @@ class PhaseField2DModel:
 
         # cell division and death parameters
         self.max_cells = 15
-        self.division_rate = [0, 0.001, 0.0003] # probability of cell division per time step per type
+        self.division_rate = [0, 0.008, 0.0003] # probability of cell division per time step per type
         self.death_line = 70
 
         # Lists to shift rows and columns by one in the 4 directions
@@ -59,9 +59,9 @@ class PhaseField2DModel:
         phi = np.zeros((self.Lx,self.Ly, len(self.types)))
         # ECM strings parameters
         rng = np.random.default_rng(0)  # fix seed if you want reproducible patterns
-        n_strings = 50
-        min_len, max_len = 4, 10
-        radius = 0.7
+        n_strings = 55
+        min_len, max_len = 5, 12
+        radius = 1
         # paint ECM strings in substrate (k=0)
         for _ in range(n_strings):
             x0 = rng.uniform(0, self.Lx)
