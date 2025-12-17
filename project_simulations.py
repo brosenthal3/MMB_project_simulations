@@ -10,14 +10,14 @@ class PhaseField2DModel:
         self.types = [2, 2, 1, 2] # cell types
 
         # model parameters
-        self.kappa = 15 # interface energy coefficient
+        self.kappa = 25 # interface energy coefficient
         self.epsilon2 = 0.9 # interface thickness parameter
         self.alpha = 0.005 # volume conservation parameter
-        self.mobility = 2 # mobility coefficient
-        self.tau = 1.2 # relaxation time
-        self.gamma = 10 # no-overlap coefficient
-        self.adhesion = np.array([[0.001, 0.001],
-                                 [0.001, 1.5]]) # adhesion matrix between cell types
+        self.mobility = 4 # mobility coefficient
+        self.tau = 0.2 # relaxation time
+        self.gamma = 43 # no-overlap coefficient
+        self.adhesion = np.array([[0.01, 0.01],
+                                 [0.01, 0.05]]) # adhesion matrix between cell types
         self.max_cells = 10
         self.division_rate = 0.0003 # probability of cell division per time step
 
