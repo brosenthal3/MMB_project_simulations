@@ -18,6 +18,8 @@ class PhaseField2DModel:
         self.gamma = 10 # no-overlap coefficient
         self.adhesion = np.array([[0.001, 0.001],
                                  [0.001, 1.5]]) # adhesion matrix between cell types
+        self.max_cells = 10
+        self.division_rate = 0.0003 # probability of cell division per time step
 
         # Lists to shift rows and columns by one in the 4 directions
         self.sright = [(i+1)%self.Lx for i in range(self.Lx)] 
@@ -100,7 +102,7 @@ class PhaseField2DModel:
                 #     print(f"Volume of cell {k}: {Vol}, Target Volume: {VolT[k]}")
 
                 # random chance for a cell to divide!
-                if np.random.rand() < 0.0003 and cell_dividing is None and Vol >= 0.9*VolT[k]:
+                if np.random.rand() < self.division_rate and cell_dividing is None and Vol >= 0.9*VolT[k] and self.N <= self.max_cells:
                     print(f"Cell {k} is growing")
                     cell_dividing = k
                     VolT[k] *= 1.5  # increase target volume for division
