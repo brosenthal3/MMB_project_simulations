@@ -3,7 +3,7 @@ import time
 import matplotlib.pyplot as plt
 
 class PhaseField2DModel:
-    def __init__(self, Lx=150, Ly=100):
+    def __init__(self, Lx=150, Ly=200):
         self.Lx = Lx
         self.Ly = Ly
         self.types = [0, 2, 2, 1, 2] # cell types, 0:substrate, 2:healthy, 1:cancer
@@ -26,8 +26,9 @@ class PhaseField2DModel:
 
         # cell division and death parameters
         self.max_cells = 15
-        self.division_rate = [0, 0.008, 0.0003] # probability of cell division per time step per type
-        self.death_line = 70
+        self.division_rate = [0, 0.004, 0.0004] # probability of cell division per time step per type
+        self.death_line = 140
+        self.ECM_line = 90
 
         # Lists to shift rows and columns by one in the 4 directions
         self.sright = [(i+1)%self.Lx for i in range(self.Lx)] 
@@ -36,6 +37,30 @@ class PhaseField2DModel:
         self.sdown = [(i-1)%self.Ly for i in range(self.Ly)] 
 
         self.phi = self.set_phi() # Initial Condition of lattice
+
+        self.draw_lines = True
+
+    
+    def get_params(self):
+        """Return a dictionary of model parameters for reporting."""
+        params = {
+            "Lx": self.Lx,
+            "Ly": self.Ly,
+            "types": self.types,
+            "kappa": self.kappa,
+            "epsilon2": self.epsilon2,
+            "alpha": self.alpha,
+            "mobility": self.mobility,
+            "tau": self.tau,
+            "gamma": self.gamma.tolist(),
+            "adhesion": self.adhesion.tolist(),
+            "tension_strength": self.tension_strength,
+            "max_cells": self.max_cells,
+            "division_rate": self.division_rate,
+            "death_line": self.death_line,
+            "ECM_line": self.ECM_line
+        }
+        return params
 
 
     def paint_string(self, mask, x0, y0, angle, length, radius):
@@ -59,20 +84,20 @@ class PhaseField2DModel:
         phi = np.zeros((self.Lx,self.Ly, len(self.types)))
         # ECM strings parameters
         rng = np.random.default_rng(0)  # fix seed if you want reproducible patterns
-        n_strings = 55
-        min_len, max_len = 5, 12
-        radius = 1
+        n_strings = 80
+        min_len, max_len = 6, 13
+        radius = 1.2
         # paint ECM strings in substrate (k=0)
         for _ in range(n_strings):
             x0 = rng.uniform(0, self.Lx)
-            y0 = rng.uniform(0, 30)
+            y0 = rng.uniform(0, self.ECM_line)
             angle = rng.uniform(0, 2 * np.pi)
             length = rng.uniform(min_len, max_len)
             phi[:, :, 0] = self.paint_string(phi[:, :, 0], x0, y0, angle, length, radius)
 
         # cell spacing parameters
         spacing = -40
-        d_spacing = 28
+        d_spacing = 30
         # paint cells (k=1..N)
         for k in range(1, len(self.types)):
             for i in range(self.Lx):
@@ -141,7 +166,7 @@ class PhaseField2DModel:
         print(f"Cell {k} of type {self.types[k]} is dividing, new type list: {self.types}")
 
 
-    def run_simulation(self, tmax=250, dt=0.045):
+    def run_simulation(self, tmax=100, dt=0.045):
         # time simulation
         init_time = time.time()
 
@@ -150,8 +175,14 @@ class PhaseField2DModel:
         plot_field = np.sum(self.phi, axis=2)
         im = ax.imshow(plot_field.T, vmin=0, vmax=3, origin='lower', cmap='inferno', interpolation='nearest')
         plt.colorbar(im)
-        ax.axhline(y=self.death_line, color='magenta', linestyle='--', alpha=0.5)
-        ax.axhline(y=self.Ly // 2, color='pink', linestyle='--', alpha=0.5)
+        if self.draw_lines:
+            ax.axhline(y=self.death_line, color='pink', linestyle='--', alpha=0.4)
+            #ax.axhline(y=self.Ly // 2, color='pink', linestyle='--', alpha=0.4)
+            ax.axhline(y=self.ECM_line, color='pink', linestyle='--', alpha=0.4)
+            # Add labeled y-ticks at the line positions
+            ax.set_yticks([self.death_line, self.ECM_line])
+            ax.set_yticklabels(['Death line', 'ECM line'])
+
         plt.ion()  # Turn on interactive mode
         plt.show()
 
@@ -162,9 +193,14 @@ class PhaseField2DModel:
         t=0
         cell_dividing = None
         cell_dead = None
+        cell_death_log = []
         while t<tmax:
             if cell_dead is not None:
+                # log cell death
+                cell_death_log.append((self.types[cell_dead], t))
                 print(f"Cell {cell_dead} has died and is removed from simulation at time {round(t,2)}")
+
+                # remove dead cell from simulation
                 self.phi = np.delete(self.phi, cell_dead, axis=2)
                 self.types.pop(cell_dead)
                 VolT.pop(cell_dead)
@@ -227,6 +263,7 @@ class PhaseField2DModel:
 
                 im.set_data(plot_field.T)  # Update data instead of redrawing
                 plt.draw()
+                plt.title(f"Phase Field Simulation at t={round(t,2)}")
                 plt.pause(0.001)  # Small pause for display update
 
         print(self.phi.shape[2], " Cells")
@@ -237,6 +274,14 @@ class PhaseField2DModel:
         plt.ioff()  # Turn off interactive mode
         plt.show()
 
+        # return data for analysis
+        params_report = self.get_params()
+        return self.phi, self.types, cell_death_log, params_report
+    
+
+    def plot_phi(self):
+        """TODO: implement plotting function to be used externally, for after simulation ends"""
+        pass
 
     def __call__(self):
         self.run_simulation()
@@ -245,3 +290,6 @@ class PhaseField2DModel:
 if __name__ == "__main__":
     model = PhaseField2DModel()
     model()
+
+    # Experiments script: 
+        # 
