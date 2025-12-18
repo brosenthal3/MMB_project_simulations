@@ -169,7 +169,7 @@ class PhaseField2DModel:
         VolT.append(VolT[k])  # same target volume as parent cell
 
 
-    def run_simulation(self, tmax=400, dt=0.05):
+    def run_simulation(self, tmax=150, dt=0.05):
         self.phi = self.set_phi() # Initial Condition of lattice
 
         if self.plotting:
