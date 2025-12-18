@@ -1,7 +1,9 @@
 import numpy as np
 import time
 import matplotlib.pyplot as plt
-from tqdm import tqdm
+from tqdm import tqdm, TqdmWarning
+import warnings
+warnings.filterwarnings("ignore", category=TqdmWarning)
 
 class PhaseField2DModel:
     def __init__(self, plotting=True, cancer_division=0.004, cancer_ECM_adhesion=0.15):
@@ -37,7 +39,7 @@ class PhaseField2DModel:
         self.sup = [(i+1)%self.Ly for i in range(self.Ly)] 
         self.sdown = [(i-1)%self.Ly for i in range(self.Ly)] 
 
-        self.phi = self.set_phi() # Initial Condition of lattice
+        self.phi = np.zeros((self.Lx, self.Ly, len(self.types))) 
         
         self.plotting = plotting
         self.draw_lines = True
@@ -167,9 +169,8 @@ class PhaseField2DModel:
         VolT.append(VolT[k])  # same target volume as parent cell
 
 
-    def run_simulation(self, tmax=300, dt=0.05):
-        # time simulation
-        init_time = time.time()
+    def run_simulation(self, tmax=400, dt=0.05):
+        self.phi = self.set_phi() # Initial Condition of lattice
 
         if self.plotting:
             # Make Plot - use imshow for much faster rendering
@@ -198,13 +199,14 @@ class PhaseField2DModel:
         # Update of the matrix phi
         t=0
         cell_dividing = None
+        cell_division_log = []
         cell_dead = None
         cell_death_log = []
         pbar = tqdm(total=tmax, desc="Simulating", unit="sec")
         while t<tmax:
             if cell_dead is not None:
                 # log cell death
-                cell_death_log.append((self.types[cell_dead], t))
+                cell_death_log.append(self.types[cell_dead])
                 # remove dead cell from simulation
                 self.phi = np.delete(self.phi, cell_dead, axis=2)
                 self.types.pop(cell_dead)
@@ -260,6 +262,8 @@ class PhaseField2DModel:
 
                 # perform cell division if volume threshold is reached
                 if Vol >= 0.99 * VolT[k] and cell_dividing == k:
+                    # log cell division
+                    cell_division_log.append(self.types[k])
                     # perform division
                     self.divide_cell(k, VolT)
                     cell_dividing = None
@@ -279,9 +283,6 @@ class PhaseField2DModel:
                 plt.title(f"Phase Field Simulation at t={round(t,2)}")
                 plt.pause(0.001)
 
-        print("Simulation complete.")
-        finish_time = time.time()
-        print(f"Total simulation time: {round(finish_time - init_time, 2)} seconds")
         pbar.close()
 
         if self.plotting:
@@ -290,14 +291,14 @@ class PhaseField2DModel:
 
         # return data for analysis
         params_report = self.get_params()
-        return self.phi, self.types, cell_death_log, params_report
+        return self.phi, self.types, cell_death_log, cell_division_log, params_report
 
 
     def __call__(self):
         return self.run_simulation()
 
 
-def plot_phi(self, phi, types):
+def plot_phi(self, phi, types, fig_name="results/final_state.png"):
     # Make Plot - use imshow for much faster rendering
     fig, ax = plt.subplots()
     plot_field = np.sum(phi, axis=2)
@@ -318,10 +319,77 @@ def plot_phi(self, phi, types):
     plt.draw()
     plt.title(f"Phase Field Simulation Final State")
 
-    plt.savefig("results/final_state.png")
+    plt.savefig(fig_name)
 
+
+def save_results(results, file_name):
+    # Extract data
+    total_phi = [res[0] for res in results]
+    total_types = [res[1] for res in results]
+    total_death_log = [res[2] for res in results]
+    total_division_log = [res[3] for res in results]
+    total_params = [res[4] for res in results]
+    
+    # Convert to object arrays explicitly to handle variable shapes
+    phi_array = np.empty(len(total_phi), dtype=object)
+    types_array = np.empty(len(total_types), dtype=object)
+    death_array = np.empty(len(total_death_log), dtype=object)
+    division_array = np.empty(len(total_division_log), dtype=object)
+    params_array = np.empty(len(total_params), dtype=object)
+    
+    for i in range(len(results)):
+        phi_array[i] = total_phi[i]
+        types_array[i] = total_types[i]
+        death_array[i] = total_death_log[i]
+        division_array[i] = total_division_log[i]
+        params_array[i] = total_params[i]
+    
+    # Save everything in one file with allow_pickle=True
+    np.savez(f"{file_name}.npz",
+             phi=phi_array,
+             types=types_array,
+             death_log=death_array,
+             division_log=division_array,
+             params=params_array, allow_pickle=True)
+    
 
 if __name__ == "__main__":
-    model = PhaseField2DModel(plotting=False)
-    results = model()
-    plot_phi(model, results[0], results[1])
+    division_conditions = [0.0004, 0.0008, 0.002, 0.004, 0.008]
+    adhesion_conditions = [0.05, 0.1, 0.15, 0.2, 0.25]
+    n_trials = 2
+
+    # run division rates experiments
+    for division_rate in division_conditions:
+        total_results = []
+        for trial in range(n_trials):
+            model = PhaseField2DModel(plotting=False, cancer_division=division_rate)
+            results = model()
+            total_results.append(results)
+
+        save_results(total_results, f"results/division_experiment/division_rate_{division_rate}")
+        # plot example final state for this condition
+        plot_phi(model, results[0], results[1], fig_name=f"results/division_experiment/division_{division_rate}_example.png")
+
+    # run adhesion experiments
+    for adhesion_rate in adhesion_conditions:
+        total_results = []
+        for trial in range(n_trials):
+            model = PhaseField2DModel(plotting=False, cancer_ECM_adhesion=adhesion_rate)
+            results = model()
+            total_results.append(results)
+
+        save_results(total_results, f"results/adhesion_experiment/adhesion_rate_{adhesion_rate}")
+        # plot example final state for this condition
+        plot_phi(model, results[0], results[1], fig_name=f"results/adhesion_experiment/adhesion_{adhesion_rate}_example.png")
+
+
+    # # Example of loading saved data
+    # data = np.load("results/division_experiment/division_rate_0.0004.npz", allow_pickle=True)
+    # phi_trial_0 = data['phi'][0]  # First trial
+    # phi_trial_1 = data['phi'][1]  # Second trial
+    # print(f"Trial 0 shape: {phi_trial_0.shape}")
+    # print(f"Trial 1 shape: {phi_trial_1.shape}")
+    # print(data['death_log'])
+    # print(data['division_log'])
+    # print(data['types'])
+    
