@@ -169,7 +169,7 @@ class PhaseField2DModel:
         VolT.append(VolT[k])  # same target volume as parent cell
 
 
-    def run_simulation(self, tmax=150, dt=0.05):
+    def run_simulation(self, tmax=300, dt=0.05):
         self.phi = self.set_phi() # Initial Condition of lattice
 
         if self.plotting:
@@ -356,7 +356,7 @@ def save_results(results, file_name):
 if __name__ == "__main__":
     division_conditions = [0.0004, 0.0008, 0.002, 0.004, 0.008]
     adhesion_conditions = [0.05, 0.1, 0.15, 0.2, 0.25]
-    n_trials = 2
+    n_trials = 30
 
     # run division rates experiments
     for division_rate in division_conditions:
