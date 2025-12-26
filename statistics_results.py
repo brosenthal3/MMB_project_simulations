@@ -1,3 +1,5 @@
+# General functions for the statistical analysis of the simulation results
+
 import numpy as np
 import glob
 import os
@@ -20,7 +22,7 @@ def lowest_y(phi, types):
         if type == 1:
             for x in range(phi.shape[0]):
                 for y in range(phi.shape[1]):
-                    if phi[x,y,k] > 0: # TODO see if we want to move this threshold upwards
+                    if phi[x,y,k] > 0.5: # TODO see if we want to move this threshold upwards
                         if lowest is None or y < lowest:
                             lowest = y
     return lowest
@@ -33,7 +35,7 @@ def h(x):
 def volumes(phi, types):
     volumes = {1: [], 2:[]}
     for k, type in enumerate(types):
-        if type in (1,2): # TODO make this more efficient
+        if type in (1,2): # substrate is irrelevant
             vol = np.sum(h(phi[:,:,k]))
             volumes[type].append(vol)
     return volumes
@@ -67,16 +69,3 @@ def analyze_folder(folder):
 
     return results_summary
 
-division_stats = analyze_folder("results/division_experiment")
-adhesion_stats = analyze_folder("results/adhesion_experiment")
-
-
-# print analysis results
-# TODO rewrite to a form on which statistics can be applied
-for file, trials in division_stats.items():
-    print("\nFile:", file)
-    for i, stats in enumerate(trials):
-        print(f" Trial {i}:")
-        print("   Lowest y:", stats["lowest_y"])
-        print("   Volumes:", stats["volumes"])
-        print("   Deaths:", stats["deaths"])

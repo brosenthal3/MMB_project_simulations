@@ -4,3 +4,6 @@
 
 # pycharm project stuff
 .idea
+results/division_experiment/cancer_volume_vs_divisionrate.png
+results/division_experiment/divisionrate_vs_invasiondepth.png
+results/division_experiment/invasiondepth_vs_divisionrate.png
