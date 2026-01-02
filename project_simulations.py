@@ -179,6 +179,7 @@ class PhaseField2DModel:
             im = ax.imshow(plot_field.T, vmin=0, vmax=3, origin='lower', cmap='inferno', interpolation='nearest')
             plt.colorbar(im)
             if self.draw_lines:
+            if self.draw_lines:
                 ax.axhline(y=self.death_line, color='pink', linestyle='--', alpha=0.4)
                 #ax.axhline(y=self.Ly // 2, color='pink', linestyle='--', alpha=0.4)
                 ax.axhline(y=self.ECM_line, color='pink', linestyle='--', alpha=0.4)
