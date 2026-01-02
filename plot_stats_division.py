@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-import statsmodels.api as sm
 from statistics_results import analyze_folder
+import sklearn.linear_model as linear_model
 
 division_stats = analyze_folder("results/division_experiment")
 
@@ -40,9 +40,6 @@ def division_stats_to_dataframe(division_stats):
 
 df_div = division_stats_to_dataframe(division_stats)
 
-
-
-
 # Create a transformed invasion depth column
 df_div["invasion_depth"] = 100 - df_div["lowest_y"]
 
@@ -67,26 +64,20 @@ mean_df = (
 
 mean_df["division_rate"] = pd.to_numeric(mean_df["division_rate"])
 
+def perform_regression(X, y):
+    X_reshaped = X.values.reshape(-1, 1)
+    model = linear_model.LinearRegression()
+    model.fit(X_reshaped, y)
+    r2 = model.score(X_reshaped, y)
+    return model, r2
+
 # Regression
-X = mean_df["division_rate"]
-y = mean_df["mean_invasion"]
-X_const = sm.add_constant(X)
-model = sm.OLS(y, X_const).fit()
-r2 = model.rsquared
+X = df_div["division_rate"]
+y = df_div["invasion_depth"]
+model, r2 = perform_regression(X, y)
+print(r2)
 
 plt.figure(figsize=(7,5))
-
-# Regression line through means
-sns.regplot(
-    data=mean_df,
-    x="division_rate",
-    y="mean_invasion",
-    scatter=False,
-    ci=None,
-    color="steelblue",
-    line_kws={"linewidth": 2.5, "alpha": 0.8}
-)
-
 # Mean + CI per condition
 sns.pointplot(
     data=df_div,
@@ -121,6 +112,11 @@ plt.text(
     fontsize=12,
     verticalalignment="top"
 )
+
+# plot regression line
+x_range = np.linspace(0, 0.004, 100)
+y_pred = model.predict(x_range.reshape(-1, 1))
+plt.plot(x_range, y_pred, color='red', linestyle='--', label='Regression Line')
 
 sns.despine()
 plt.tight_layout()
