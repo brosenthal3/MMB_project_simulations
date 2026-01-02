@@ -9,7 +9,7 @@ class PhaseField2DModel:
     def __init__(self, plotting=True, cancer_division=0.004, cancer_ECM_adhesion=0.15):
         self.Lx = 150
         self.Ly = 200
-        self.types = [0, 2, 2, 1, 2] # cell types, 0:substrate, 2:healthy, 1:cancer
+        self.types = [0, 2, 2, 2, 2] # cell types, 0:substrate, 2:healthy, 1:cancer
 
         # model parameters
         self.kappa = 22 # interface energy coefficient
@@ -29,7 +29,7 @@ class PhaseField2DModel:
 
         # cell division and death parameters
         self.max_cells = 15
-        self.division_rate = [0, cancer_division, 0.0004] # probability of cell division per time step per type
+        self.division_rate = [0, cancer_division, 0.0008] # probability of cell division per time step per type
         self.death_line = 140
         self.ECM_line = 90
 
@@ -153,8 +153,7 @@ class PhaseField2DModel:
         return False
     
     
-    def divide_cell(self, k, VolT):
-        VolT[k] /= 1.5  # reset target volume after division
+    def divide_cell(self, k):
         # perform cell division
         new_phi_left = np.copy(self.phi[:, :, k])
         new_cell_right = np.copy(self.phi[:, :, k])
@@ -165,11 +164,13 @@ class PhaseField2DModel:
         # create new cell
         new_cell_right[mid_x:, :] = 0  # clear other half for new cell
         self.phi = np.concatenate((self.phi, new_cell_right[:, :, np.newaxis]), axis=2)
-        self.types.append(self.types[k])  # same type as parent cell
-        VolT.append(VolT[k])  # same target volume as parent cell
+        current_type = self.types[k]
+        self.types.append(current_type)  # same type as parent cell
+
+        print(f"Cell {k} divided, types: {self.types}")
 
 
-    def run_simulation(self, tmax=300, dt=0.05):
+    def run_simulation(self, tmax=70, dt=0.05):
         self.phi = self.set_phi() # Initial Condition of lattice
 
         if self.plotting:
@@ -206,6 +207,7 @@ class PhaseField2DModel:
         pbar = tqdm(total=tmax, desc="Simulating", unit="sec")
         while t<tmax:
             if cell_dead is not None:
+                print(f"Cell {cell_dead} died")
                 # log cell death
                 cell_death_log.append(self.types[cell_dead])
                 # remove dead cell from simulation
@@ -230,11 +232,11 @@ class PhaseField2DModel:
                     VolT[k] = 0  # set target volume to zero
 
                 # if cell volume is very small, remove it from simulation
-                if Vol < 2 and k != 0:
+                if Vol < 2 and k != 0 and VolT[k] == 0:
                     cell_dead = k
 
                 # random chance for a cell to divide!
-                if (np.random.rand() < self.division_rate[self.types[k]] and cell_dividing is None and Vol >= 0.9 * VolT[k - 1] and len(self.types) < self.max_cells):
+                if (np.random.rand() < self.division_rate[self.types[k]] and cell_dividing is None and Vol >= 0.9 * VolT[k] and len(self.types) < self.max_cells):
                     cell_dividing = k
                     VolT[k] *= 1.5  # increase target volume for division
 
@@ -266,7 +268,10 @@ class PhaseField2DModel:
                     # log cell division
                     cell_division_log.append(self.types[k])
                     # perform division
-                    self.divide_cell(k, VolT)
+                    self.divide_cell(k)
+                    VolT[k] /= 1.5  # reset target volume after division
+                    VolT.append(VolT[k])  # same target volume as parent cell
+
                     cell_dividing = None
                     # resize h_phi to match new number of cells
                     h_phi = np.zeros((self.Lx, self.Ly, len(self.types)))
@@ -355,33 +360,37 @@ def save_results(results, file_name):
     
 
 if __name__ == "__main__":
-    division_conditions = [0.0004, 0.0008, 0.002, 0.004, 0.008]
-    adhesion_conditions = [0.05, 0.1, 0.15, 0.2, 0.25]
-    n_trials = 30
+
+    model = PhaseField2DModel(plotting=True)
+    results = model()
+
+    # division_conditions = [0.0004, 0.0008, 0.002, 0.004, 0.008]
+    # adhesion_conditions = [0.05, 0.1, 0.15, 0.2, 0.25]
+    # n_trials = 30
 
     # run division rates experiments
-    for division_rate in division_conditions:
-        total_results = []
-        for trial in range(n_trials):
-            model = PhaseField2DModel(plotting=False, cancer_division=division_rate)
-            results = model()
-            total_results.append(results)
+    # for division_rate in division_conditions:
+    #     total_results = []
+    #     for trial in range(n_trials):
+    #         model = PhaseField2DModel(plotting=False, cancer_division=division_rate)
+    #         results = model()
+    #         total_results.append(results)
 
-        save_results(total_results, f"results/division_experiment/division_rate_{division_rate}")
-        # plot example final state for this condition
-        plot_phi(model, results[0], results[1], fig_name=f"results/division_experiment/division_{division_rate}_example.png")
+    #     save_results(total_results, f"results/division_experiment/division_rate_{division_rate}")
+    #     # plot example final state for this condition
+    #     plot_phi(model, results[0], results[1], fig_name=f"results/division_experiment/division_{division_rate}_example.png")
 
-    # run adhesion experiments
-    for adhesion_rate in adhesion_conditions:
-        total_results = []
-        for trial in range(n_trials):
-            model = PhaseField2DModel(plotting=False, cancer_ECM_adhesion=adhesion_rate)
-            results = model()
-            total_results.append(results)
+    # # run adhesion experiments
+    # for adhesion_rate in adhesion_conditions:
+    #     total_results = []
+    #     for trial in range(n_trials):
+    #         model = PhaseField2DModel(plotting=False, cancer_ECM_adhesion=adhesion_rate)
+    #         results = model()
+    #         total_results.append(results)
 
-        save_results(total_results, f"results/adhesion_experiment/adhesion_rate_{adhesion_rate}")
-        # plot example final state for this condition
-        plot_phi(model, results[0], results[1], fig_name=f"results/adhesion_experiment/adhesion_{adhesion_rate}_example.png")
+    #     save_results(total_results, f"results/adhesion_experiment/adhesion_rate_{adhesion_rate}")
+    #     # plot example final state for this condition
+    #     plot_phi(model, results[0], results[1], fig_name=f"results/adhesion_experiment/adhesion_{adhesion_rate}_example.png")
 
 
     # # Example of loading saved data
