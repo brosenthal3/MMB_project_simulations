@@ -1,5 +1,4 @@
 import numpy as np
-import time
 import matplotlib.pyplot as plt
 from tqdm import tqdm, TqdmWarning
 import warnings
@@ -15,8 +14,8 @@ class PhaseField2DModel:
         self.kappa = 22 # interface energy coefficient
         self.epsilon2 = 0.8 # interface thickness parameter
         self.alpha = 0.004 # volume conservation parameter
-        self.mobility = [3, 4, 4] # mobility coefficient per cell type
-        self.tau = [1, 0.25, 0.3] # relaxation time per cell type
+        self.mobility = [1, 4, 4] # mobility coefficient per cell type
+        self.tau = [1, 0.25, 0.25] # relaxation time per cell type
         self.gamma = np.array([[8, 1.5, 30],
                               [1.5, 30, 30],
                               [30, 30, 30]]) # no-overlap coefficient
@@ -29,7 +28,7 @@ class PhaseField2DModel:
 
         # cell division and death parameters
         self.max_cells = 15
-        self.division_rate = [0, cancer_division, 0.0008] # probability of cell division per time step per type
+        self.division_rate = [0, cancer_division, 0.0004] # probability of cell division per time step per type
         self.death_line = 140
         self.ECM_line = 90
 
@@ -358,41 +357,45 @@ def save_results(results, file_name):
              params=params_array, allow_pickle=True)
     
 
-if __name__ == "__main__":
+def run_experiments():
+    # function used to run parameter sweep experiments
 
+    division_conditions = [0.0004, 0.0008, 0.002, 0.004, 0.008]
+    adhesion_conditions = [0.05, 0.1, 0.15, 0.2, 0.25]
+    n_trials = 30
+
+    # run division rates experiments
+    for division_rate in division_conditions:
+        total_results = []
+        for _ in range(n_trials):
+            model = PhaseField2DModel(plotting=False, cancer_division=division_rate)
+            results = model()
+            total_results.append(results)
+
+        save_results(total_results, f"results/division_experiment/division_rate_{division_rate}")
+        # plot example final state for this condition
+        plot_phi(model, results[0], results[1], fig_name=f"results/division_experiment/division_{division_rate}_example.png")
+
+    # run adhesion experiments
+    for adhesion_rate in adhesion_conditions:
+        total_results = []
+        for trial in range(n_trials):
+            model = PhaseField2DModel(plotting=False, cancer_ECM_adhesion=adhesion_rate)
+            results = model()
+            total_results.append(results)
+
+        save_results(total_results, f"results/adhesion_experiment/adhesion_rate_{adhesion_rate}")
+        # plot example final state for this condition
+        plot_phi(model, results[0], results[1], fig_name=f"results/adhesion_experiment/adhesion_{adhesion_rate}_example.png")
+
+
+
+if __name__ == "__main__":
+    # Example on how to run a typical simulation
     model = PhaseField2DModel(plotting=True)
     results = model()
 
-    # division_conditions = [0.0004, 0.0008, 0.002, 0.004, 0.008]
-    # adhesion_conditions = [0.05, 0.1, 0.15, 0.2, 0.25]
-    # n_trials = 30
-
-    # run division rates experiments
-    # for division_rate in division_conditions:
-    #     total_results = []
-    #     for trial in range(n_trials):
-    #         model = PhaseField2DModel(plotting=False, cancer_division=division_rate)
-    #         results = model()
-    #         total_results.append(results)
-
-    #     save_results(total_results, f"results/division_experiment/division_rate_{division_rate}")
-    #     # plot example final state for this condition
-    #     plot_phi(model, results[0], results[1], fig_name=f"results/division_experiment/division_{division_rate}_example.png")
-
-    # # run adhesion experiments
-    # for adhesion_rate in adhesion_conditions:
-    #     total_results = []
-    #     for trial in range(n_trials):
-    #         model = PhaseField2DModel(plotting=False, cancer_ECM_adhesion=adhesion_rate)
-    #         results = model()
-    #         total_results.append(results)
-
-    #     save_results(total_results, f"results/adhesion_experiment/adhesion_rate_{adhesion_rate}")
-    #     # plot example final state for this condition
-    #     plot_phi(model, results[0], results[1], fig_name=f"results/adhesion_experiment/adhesion_{adhesion_rate}_example.png")
-
-
-    # # Example of loading saved data
+    # Example of loading saved data
     # data = np.load("results/division_experiment/division_rate_0.0004.npz", allow_pickle=True)
     # phi_trial_0 = data['phi'][0]  # First trial
     # phi_trial_1 = data['phi'][1]  # Second trial

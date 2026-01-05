@@ -1,5 +1,4 @@
 # General functions for the statistical analysis of the simulation results
-
 import numpy as np
 import glob
 import os
@@ -22,14 +21,16 @@ def lowest_y(phi, types):
         if type == 1:
             for x in range(phi.shape[0]):
                 for y in range(phi.shape[1]):
-                    if phi[x,y,k] > 0.5: # TODO see if we want to move this threshold upwards
+                    if phi[x,y,k] > 0.5:
                         if lowest is None or y < lowest:
                             lowest = y
     return lowest
 
+
 # use function h for volumes
 def h(x):
     return x**2*(3-2*x)
+
 
 # function to compute the volume of cancer cells and healthy cells
 def volumes(phi, types):
@@ -39,6 +40,7 @@ def volumes(phi, types):
             vol = np.sum(h(phi[:,:,k]))
             volumes[type].append(vol)
     return volumes
+
 
 # function to count the number of deaths per cell types
 def count_deaths(death_log):
